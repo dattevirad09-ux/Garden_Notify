@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2B2536">
+<meta name="description" content="记录南瓜、茄子等蔬果的生长阶段、浇水与施肥周期">
+<title>我的菜园</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="菜园">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============ 设计变量 ============ */
+:root{
+  --soil-dark:#4A3728;
+  --soil-mid:#6B4F3A;
+  --soil-light:#8A6A4C;
+  --leaf:#4F8B3B;
+  --leaf-dark:#356935;
+  --gold:#D9A527;
+  --gold-soft:#F0C766;
+  --paper:#F3EEDF;
+  --card:#FFFDF7;
+  --ink:#2C2416;
+  --ink-soft:#7A6A54;
+  --danger:#C0483A;
+  --water:#3E86C9;
+  --line:#E4DBC4;
+  --radius:20px;
+  --radius-sm:12px;
+  --font-display:'Fraunces', Georgia, serif;
+  --font-body:'Nunito', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%; margin:0; overscroll-behavior:none;}
+body{
+  font-family:var(--font-body);
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit; cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+h1,h2,h3{font-family:var(--font-display); margin:0;}
+::-webkit-scrollbar{width:0;height:0;}
+
+#app{display:flex; flex-direction:column; height:100dvh; min-height:100vh; overflow:hidden;}
+
+/* ============ 顶部信息条 ============ */
+#topbar{
+  padding:calc(10px + var(--safe-top)) 18px 10px;
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--card); border-bottom:1px solid var(--line);
+  flex-shrink:0; z-index:5;
+}
+#topbar .brand{display:flex; align-items:baseline; gap:8px;}
+#topbar h1{font-size:19px; font-weight:600; letter-spacing:.3px;}
+#topbar .date-str{font-size:12px; color:var(--ink-soft);}
+#todo-pill{
+  display:flex; align-items:center; gap:6px;
+  background:var(--gold-soft); color:#5C3E10; border:none;
+  padding:7px 12px; border-radius:999px; font-weight:700; font-size:12.5px;
+}
+#todo-pill.hidden{display:none;}
+#todo-pill .dot{width:6px;height:6px;border-radius:50%;background:#C0483A;}
+
+/* ============ 主体视图容器 ============ */
+#main{position:relative; flex:1; overflow:hidden;}
+.view{position:absolute; inset:0; overflow-y:auto; -webkit-overflow-scrolling:touch; display:none;}
+.view.active{display:block;}
+.view-pad{padding:16px 16px calc(28px + var(--safe-bottom));}
+
+/* ============ 花园场景（签名元素） ============ */
+#sky-scene{
+  position:relative; overflow:hidden; height:230px;
+  transition:background 1.2s ease;
+}
+#sky-scene.phase-dawn{background:linear-gradient(180deg,#4B4380 0%,#E8895A 65%,#F2C265 100%);}
+#sky-scene.phase-day{background:linear-gradient(180deg,#6FB9E0 0%,#BFE3F0 55%,#FBE7B4 100%);}
+#sky-scene.phase-dusk{background:linear-gradient(180deg,#332A5C 0%,#A85A6B 55%,#E8A24C 100%);}
+#sky-scene.phase-night{background:linear-gradient(180deg,#0B1230 0%,#1B1E45 60%,#2A2454 100%);}
+#celestial{
+  position:absolute; width:34px; height:34px; border-radius:50%;
+  top:20px; left:50%; transform:translateX(-50%);
+  transition:top 1.2s ease, background 1.2s ease, box-shadow 1.2s ease;
+}
+.phase-day #celestial{background:#FFDE7A; box-shadow:0 0 26px 10px rgba(255,222,122,.55);}
+.phase-dawn #celestial{background:#FFC97A; box-shadow:0 0 22px 8px rgba(255,201,122,.5);}
+.phase-dusk #celestial{background:#FFB37A; box-shadow:0 0 22px 8px rgba(255,179,122,.5);}
+.phase-night #celestial{background:#EFEFF6; box-shadow:0 0 16px 4px rgba(239,239,246,.4);}
+#stars{position:absolute; inset:0; opacity:0; transition:opacity 1s ease; pointer-events:none;}
+.phase-night #stars{opacity:1;}
+.star{position:absolute; background:#fff; border-radius:50%;}
+#hillrow{position:absolute; left:0; right:0; bottom:0; height:70px;}
+.hill{position:absolute; bottom:-18px; border-radius:50%;}
+
+#garden-plot-wrap{padding:14px 14px calc(20px + var(--safe-bottom));}
+#garden-plot{
+  background:var(--soil-dark);
+  border-radius:var(--radius);
+  padding:14px 10px 6px;
+  box-shadow: inset 0 3px 10px rgba(0,0,0,.35);
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;
+  min-height:120px;
+}
+.plant-tile{
+  position:relative; background:var(--soil-mid); border-radius:14px;
+  padding:8px 4px 6px; display:flex; flex-direction:column; align-items:center;
+  border:none; color:#fff;
+}
+.plant-tile svg{width:70px; height:70px; display:block;}
+.plant-tile .p-name{font-size:11.5px; font-weight:700; margin-top:2px; max-width:90%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.plant-tile .p-stage{font-size:9.5px; color:#E9DFC7; opacity:.85;}
+.badge-row{position:absolute; top:4px; right:4px; display:flex; gap:3px;}
+.badge{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px; box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.badge.water{background:var(--water); color:#fff;}
+.badge.fert{background:var(--gold); color:#3a2a06;}
+.plot-empty{
+  grid-column:1/-1; text-align:center; color:#EADFC7; padding:22px 10px 14px; font-size:13.5px;
+}
+.plot-empty .icon{font-size:30px; display:block; margin-bottom:6px;}
+.add-tile{
+  border:1.5px dashed rgba(255,255,255,.4); background:transparent; border-radius:14px;
+  display:flex; align-items:center; justify-content:center; min-height:96px; color:#EADFC7; font-size:26px;
+}
+
+/* ============ 通用卡片 / 板块 ============ */
+.section-title{font-size:15px; font-weight:700; margin:18px 0 10px; color:var(--ink); display:flex; align-items:center; gap:6px;}
+.card{background:var(--card); border-radius:var(--radius); padding:14px; border:1px solid var(--line); margin-bottom:12px;}
+.card + .card{margin-top:10px;}
+.hint{font-size:12.5px; color:var(--ink-soft); line-height:1.6;}
+
+/* ============ 待办列表 ============ */
+.todo-item{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);}
+.todo-item:last-child{border-bottom:none;}
+.todo-item .ti-icon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.todo-item .ti-icon.water{background:#E4F1FB; color:var(--water);}
+.todo-item .ti-icon.fert{background:#FBF1DA; color:#9C7412;}
+.todo-item .ti-body{flex:1; min-width:0;}
+.todo-item .ti-title{font-size:13.5px; font-weight:700;}
+.todo-item .ti-sub{font-size:11.5px; color:var(--ink-soft);}
+.todo-item .ti-sub.overdue{color:var(--danger); font-weight:700;}
+.btn-check{
+  border:none; background:var(--leaf); color:#fff; font-size:12px; font-weight:700;
+  padding:8px 12px; border-radius:999px; flex-shrink:0;
+}
+.empty-note{font-size:13px; color:var(--ink-soft); text-align:center; padding:16px 0;}
+
+/* ============ 底部导航 ============ */
+#bottom-nav{
+  display:flex; background:var(--card); border-top:1px solid var(--line);
+  flex-shrink:0; padding-bottom:var(--safe-bottom); z-index:10;
+}
+.nav-btn{
+  flex:1; border:none; background:transparent; padding:9px 0 8px; display:flex; flex-direction:column;
+  align-items:center; gap:2px; color:var(--ink-soft); font-size:10.5px; font-weight:700;
+}
+.nav-btn .nav-ic{font-size:20px; line-height:1;}
+.nav-btn.active{color:var(--leaf-dark);}
+.nav-btn.active .nav-ic{transform:translateY(-1px);}
+
+/* ============ 表单 ============ */
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:12.5px; font-weight:700; color:var(--ink-soft); margin-bottom:6px;}
+.field input[type=text], .field input[type=date], .field input[type=number], .field select, .field textarea{
+  width:100%; border:1.5px solid var(--line); background:var(--paper); border-radius:12px; padding:10px 12px; font-size:14px; color:var(--ink);
+}
+.field textarea{resize:vertical; min-height:56px;}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.preset-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-bottom:16px;}
+.preset-card{
+  border:1.5px solid var(--line); background:var(--card); border-radius:14px; padding:10px 4px; text-align:center;
+}
+.preset-card .pc-emoji{font-size:24px; display:block;}
+.preset-card .pc-label{font-size:11.5px; font-weight:700; margin-top:3px;}
+.preset-card.selected{border-color:var(--leaf); background:#EEF6E8; box-shadow:0 0 0 2px rgba(79,139,59,.25) inset;}
+.btn-primary{
+  width:100%; border:none; background:var(--leaf-dark); color:#fff; font-weight:800; font-size:15px;
+  padding:13px; border-radius:14px; margin-top:4px;
+}
+.btn-secondary{
+  width:100%; border:1.5px solid var(--line); background:var(--card); color:var(--ink); font-weight:700; font-size:13.5px;
+  padding:11px; border-radius:12px; margin-top:8px;
+}
+.btn-danger{
+  width:100%; border:1.5px solid #EBC9C2; background:#FBEFEC; color:var(--danger); font-weight:700; font-size:13.5px;
+  padding:11px; border-radius:12px; margin-top:8px;
+}
+.toggle-row{display:flex; gap:8px;}
+.toggle-opt{flex:1; text-align:center; padding:9px 6px; border-radius:10px; border:1.5px solid var(--line); font-size:12.5px; font-weight:700; color:var(--ink-soft); background:var(--card);}
+.toggle-opt.active{border-color:var(--leaf); color:var(--leaf-dark); background:#EEF6E8;}
+
+/* ============ 日历 ============ */
+.cal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+.cal-head button{border:none; background:var(--card); border:1px solid var(--line); width:34px; height:34px; border-radius:10px; font-size:15px;}
+.cal-head .cal-title{font-family:var(--font-display); font-weight:600; font-size:16px;}
+.cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;}
+.cal-dow{font-size:10.5px; color:var(--ink-soft); font-weight:700; padding-bottom:4px;}
+.cal-day{
+  position:relative; aspect-ratio:1/1; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-size:12px; color:var(--ink); background:var(--card); border:1px solid var(--line);
+}
+.cal-day.empty{background:transparent; border:none;}
+.cal-day.today{border-color:var(--leaf); border-width:2px; font-weight:800;}
+.cal-day .dots{display:flex; gap:2px; margin-top:2px;}
+.cal-day .dot{width:5px;height:5px;border-radius:50%;}
+.cal-day.selected{background:#EEF6E8;}
+.dot.water{background:var(--water);}
+.dot.fert{background:var(--gold);}
+.dot.harvest{background:var(--leaf-dark);}
+.day-log-item{display:flex; align-items:center; gap:8px; padding:7px 0; font-size:12.5px; border-bottom:1px solid var(--line);}
+.day-log-item:last-child{border-bottom:none;}
+
+/* ============ 底部弹出详情 ============ */
+#sheet-backdrop{position:fixed; inset:0; background:rgba(20,15,8,.45); opacity:0; pointer-events:none; transition:opacity .25s ease; z-index:20;}
+#sheet-backdrop.show{opacity:1; pointer-events:auto;}
+#plant-sheet{
+  position:fixed; left:0; right:0; bottom:0; background:var(--paper); border-radius:22px 22px 0 0;
+  transform:translateY(100%); transition:transform .3s cubic-bezier(.32,.72,0,1); z-index:21;
+  max-height:88vh; overflow-y:auto; padding:10px 18px calc(22px + var(--safe-bottom));
+}
+#plant-sheet.show{transform:translateY(0);}
+.sheet-handle{width:36px; height:4px; background:var(--line); border-radius:99px; margin:6px auto 10px;}
+.sheet-hero{display:flex; align-items:center; gap:14px; padding:6px 0 12px;}
+.sheet-hero svg{width:84px;height:84px; background:var(--soil-mid); border-radius:16px; padding:4px;}
+.sheet-hero h2{font-size:19px;}
+.sheet-hero .sh-species{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+.stage-bar-wrap{margin:10px 0 14px;}
+.stage-bar-labels{display:flex; justify-content:space-between; font-size:11px; color:var(--ink-soft); margin-bottom:5px;}
+.stage-bar{height:8px; background:var(--line); border-radius:99px; overflow:hidden;}
+.stage-bar-fill{height:100%; background:var(--leaf); border-radius:99px; transition:width .4s ease;}
+.stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;}
+.stat-box{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 12px;}
+.stat-box .sb-label{font-size:10.5px; color:var(--ink-soft); font-weight:700;}
+.stat-box .sb-val{font-size:15px; font-weight:800; margin-top:2px;}
+.stat-box .sb-val.due{color:var(--danger);}
+.action-row{display:flex; gap:8px; margin-bottom:6px;}
+.action-btn{flex:1; border:none; padding:12px 4px; border-radius:14px; font-weight:800; font-size:13px; color:#fff;}
+.action-btn.water{background:var(--water);}
+.action-btn.fert{background:var(--gold); color:#4A3407;}
+.action-btn.harvest{background:var(--leaf-dark);}
+.mini-log{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
+
+.hidden{display:none !important;}
+
+@media (min-width:560px){
+  #app{max-width:480px; margin:0 auto; box-shadow:0 0 40px rgba(0,0,0,.08);}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="topbar">
+    <div class="brand">
+      <h1 id="garden-name">我的菜园</h1>
+    </div>
+    <button id="todo-pill" class="hidden"><span class="dot"></span><span id="todo-count-text">0 项待办</span></button>
+  </div>
+
+  <div id="main">
+
+    <!-- 花园视图 -->
+    <section id="view-garden" class="view active">
+      <div id="sky-scene" class="phase-day">
+        <div id="stars"></div>
+        <div id="celestial"></div>
+        <div id="hillrow"></div>
+      </div>
+      <div id="garden-plot-wrap">
+        <div id="garden-plot"></div>
+      </div>
+      <div class="view-pad" style="padding-top:0;">
+        <div id="today-todo-card" class="card hidden">
+          <div class="section-title" style="margin-top:0;">⏰ 今日待办</div>
+          <div id="today-todo-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 日历视图 -->
+    <section id="view-calendar" class="view">
+      <div class="view-pad">
+        <div class="card">
+          <div class="cal-head">
+            <button id="cal-prev">‹</button>
+            <div class="cal-title" id="cal-title">2026年1月</div>
+            <button id="cal-next">›</button>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+        <div class="card">
+          <div class="section-title" style="margin-top:0;" id="cal-selected-title">今天</div>
+          <div id="cal-day-log"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 创建视图 -->
+    <section id="view-create" class="view">
+      <div class="view-pad">
+        <div class="section-title" style="margin-top:4px;">🌱 选择作物</div>
+        <div class="preset-grid" id="preset-grid"></div>
+
+        <div class="field">
+          <label>名称</label>
+          <input type="text" id="f-name" placeholder="例如：1号南瓜">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>种植日期</label>
+            <input type="date" id="f-planted">
+          </div>
+          <div class="field">
+            <label>当前阶段</label>
+            <select id="f-stage-mode">
+              <option value="auto">按日期自动</option>
+              <option value="0">种子</option>
+              <option value="1">幼苗</option>
+              <option value="2">生长期</option>
+              <option value="3">开花期</option>
+              <option value="4">结果期</option>
+              <option value="5">成熟</option>
+            </select>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>浇水周期（天/次）</label>
+            <input type="number" id="f-water" min="1" max="30">
+          </div>
+          <div class="field">
+            <label>施肥周期（天/次）</label>
+            <input type="number" id="f-fert" min="1" max="90">
+          </div>
+        </div>
+        <div class="field">
+          <label>备注（可选）</label>
+          <textarea id="f-note" placeholder="种植位置、品种备注等"></textarea>
+        </div>
+        <button class="btn-primary" id="btn-save-plant">🌾 种下这株作物</button>
+      </div>
+    </section>
+
+    <!-- 设置视图 -->
+    <section id="view-settings" class="view">
+      <div class="view-pad">
+        <div class="section-title" style="margin-top:4px;">花园名称</div>
+        <div class="card">
+          <input type="text" id="s-garden-name" style="width:100%;border:1.5px solid var(--line);background:var(--paper);border-radius:12px;padding:10px 12px;font-size:14px;">
+        </div>
+
+        <div class="section-title">昼夜主题</div>
+        <div class="card">
+          <div class="toggle-row" id="theme-toggle">
+            <div class="toggle-opt" data-v="auto">跟随时间</div>
+            <div class="toggle-opt" data-v="day">始终白天</div>
+            <div class="toggle-opt" data-v="night">始终夜晚</div>
+          </div>
+        </div>
+
+        <div class="section-title">数据管理</div>
+        <div class="card">
+          <p class="hint">所有记录仅保存在本设备浏览器的本地存储（localStorage）中，不会上传到任何服务器 —— 即使网页部署在公开的 GitHub Pages 上，其他访问者也看不到你的数据。建议定期导出备份，换设备/清缓存前也请先导出。</p>
+          <button class="btn-secondary" id="btn-export">⬇️ 导出备份 (JSON)</button>
+          <input type="file" id="import-file" accept="application/json" class="hidden">
+          <button class="btn-secondary" id="btn-import">⬆️ 从备份导入</button>
+          <button class="btn-danger" id="btn-reset">🗑️ 清空所有数据</button>
+        </div>
+
+        <div class="section-title">关于提醒</div>
+        <div class="card">
+          <p class="hint">这是一个纯静态网页，没有后台服务器，因此无法像 App 一样在后台推送通知。打开网页时，顶部与「花园」页会显示今日/逾期的浇水施肥待办，建议把它加到手机主屏幕（PWA），每天点开看一眼即可。</p>
+        </div>
+
+        <div class="section-title">关于</div>
+        <div class="card">
+          <p class="hint">我的菜园 · 记录南瓜、茄子、西瓜等蔬果的生长阶段与养护周期。数据版本 v1。</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <nav id="bottom-nav">
+    <button class="nav-btn active" data-view="garden"><span class="nav-ic">🌻</span>花园</button>
+    <button class="nav-btn" data-view="calendar"><span class="nav-ic">📅</span>日历</button>
+    <button class="nav-btn" data-view="create"><span class="nav-ic">➕</span>创建</button>
+    <button class="nav-btn" data-view="settings"><span class="nav-ic">⚙️</span>设定</button>
+  </nav>
+
+</div>
+
+<div id="sheet-backdrop"></div>
+<div id="plant-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-hero">
+    <div id="sheet-svg"></div>
+    <div>
+      <h2 id="sheet-name">植株名称</h2>
+      <div class="sh-species" id="sheet-species">南瓜 · 第 0 天</div>
+    </div>
+  </div>
+
+  <div class="stage-bar-wrap">
+    <div class="stage-bar-labels"><span id="stage-label">种子</span><span id="stage-next-label">→ 幼苗</span></div>
+    <div class="stage-bar"><div class="stage-bar-fill" id="stage-bar-fill" style="width:0%;"></div></div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-box"><div class="sb-label">💧 浇水</div><div class="sb-val" id="stat-water">--</div></div>
+    <div class="stat-box"><div class="sb-label">🌰 施肥</div><div class="sb-val" id="stat-fert">--</div></div>
+  </div>
+
+  <div class="action-row">
+    <button class="action-btn water" id="btn-mark-water">💧 已浇水</button>
+    <button class="action-btn fert" id="btn-mark-fert">🌰 已施肥</button>
+  </div>
+  <button class="action-btn harvest" style="width:100%;margin-bottom:10px;" id="btn-mark-harvest">🧺 记一次收获</button>
+  <div class="mini-log" id="sheet-harvest-log"></div>
+
+  <div class="section-title">编辑</div>
+  <div class="card">
+    <div class="field"><label>名称</label><input type="text" id="e-name"></div>
+    <div class="row2">
+      <div class="field"><label>种植日期</label><input type="date" id="e-planted"></div>
+      <div class="field"><label>阶段</label>
+        <select id="e-stage-mode">
+          <option value="auto">按日期自动</option>
+          <option value="0">种子</option><option value="1">幼苗</option><option value="2">生长期</option>
+          <option value="3">开花期</option><option value="4">结果期</option><option value="5">成熟</option>
+        </select>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>浇水周期(天)</label><input type="number" id="e-water" min="1" max="30"></div>
+      <div class="field"><label>施肥周期(天)</label><input type="number" id="e-fert" min="1" max="90"></div>
+    </div>
+    <div class="field"><label>备注</label><textarea id="e-note"></textarea></div>
+    <button class="btn-primary" id="btn-save-edit">保存修改</button>
+    <button class="btn-danger" id="btn-delete-plant">🗑️ 移除这株作物</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   数据配置
+============================================================ */
+var STAGE_NAMES = ["种子","幼苗","生长期","开花期","结果期","成熟"];
+
+var SPECIES = {
+  pumpkin:  {label:"南瓜", emoji:"🎃", leaf:"#4F8B3B", leafDark:"#356935", flower:"#F4C430", fruit:"#E07A1F", fruitDark:"#B85C12", shape:"pumpkin", water:3,  fert:14, days:[0,5,15,30,50,75]},
+  eggplant: {label:"茄子", emoji:"🍆", leaf:"#4B7A45", leafDark:"#33552F", flower:"#9B59B6", fruit:"#5B2C6F", fruitDark:"#3E1D4D", shape:"eggplant", water:2, fert:14, days:[0,7,20,35,50,68]},
+  watermelon:{label:"西瓜", emoji:"🍉", leaf:"#3E7C3E", leafDark:"#2A5A2A", flower:"#F4E04D", fruit:"#3C8C3C", fruitDark:"#1F5C1F", shape:"watermelon", water:4, fert:14, days:[0,6,18,35,55,85]},
+  tomato:   {label:"番茄", emoji:"🍅", leaf:"#4F8B4F", leafDark:"#356935", flower:"#F4C430", fruit:"#D64545", fruitDark:"#A32E2E", shape:"tomato", water:2, fert:10, days:[0,5,15,28,42,58]},
+  chili:    {label:"辣椒", emoji:"🌶️", leaf:"#4F8B4F", leafDark:"#356935", flower:"#F4F4F4", fruit:"#C93B2E", fruitDark:"#8F2A20", shape:"chili", water:2, fert:14, days:[0,6,18,32,46,62]},
+  cucumber: {label:"黄瓜", emoji:"🥒", leaf:"#4F8B3B", leafDark:"#356935", flower:"#F4C430", fruit:"#5FA83B", fruitDark:"#3E7A24", shape:"cucumber", water:2, fert:12, days:[0,5,14,25,38,52]},
+  custom:   {label:"自定义", emoji:"🌿", leaf:"#4F8B3B", leafDark:"#356935", flower:"#F4C430", fruit:"#8FAE55", fruitDark:"#63793A", shape:"round-small", water:3, fert:14, days:[0,6,16,30,45,60]}
+};
+
+var LS_PLANTS = "garden_plants_v1";
+var LS_SETTINGS = "garden_settings_v1";
+
+/* ============================================================
+   工具函数
+============================================================ */
+function qs(s,el){return (el||document).querySelector(s);}
+function qsa(s,el){return Array.prototype.slice.call((el||document).querySelectorAll(s));}
+function uid(){return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);}
+function pad2(n){return n<10?"0"+n:""+n;}
+function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
+function parseDate(s){ var p=s.split("-"); return new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10)); }
+function addDays(s,n){ var d=parseDate(s); d.setDate(d.getDate()+n); return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
+function daysBetween(a,b){ var da=parseDate(a), db=parseDate(b); return Math.round((db-da)/86400000); }
+function fmtShort(s){ var p=s.split("-"); return p[1]+"月"+p[2]+"日"; }
+
+/* ============================================================
+   存储
+============================================================ */
+function loadPlants(){
+  try{ var raw = localStorage.getItem(LS_PLANTS); return raw? JSON.parse(raw): []; }catch(e){ return []; }
+}
+function savePlants(list){ localStorage.setItem(LS_PLANTS, JSON.stringify(list)); }
+function loadSettings(){
+  try{
+    var raw = localStorage.getItem(LS_SETTINGS);
+    var s = raw? JSON.parse(raw): {};
+    if(!s.gardenName) s.gardenName = "我的菜园";
+    if(!s.theme) s.theme = "auto";
+    return s;
+  }catch(e){ return {gardenName:"我的菜园", theme:"auto"}; }
+}
+function saveSettings(s){ localStorage.setItem(LS_SETTINGS, JSON.stringify(s)); }
+
+var state = {
+  plants: loadPlants(),
+  settings: loadSettings(),
+  currentView: "garden",
+  activePlantId: null,
+  calYear: new Date().getFullYear(),
+  calMonth: new Date().getMonth(),
+  calSelectedDate: todayStr(),
+  selectedPreset: "pumpkin"
+};
+
+/* ============================================================
+   植株阶段 / 浇水施肥 状态计算
+============================================================ */
+function speciesCfg(sp){ return SPECIES[sp] || SPECIES.custom; }
+
+function getStageIndex(plant){
+  if(plant.stageOverride !== null && plant.stageOverride !== undefined){
+    return plant.stageOverride;
+  }
+  var cfg = speciesCfg(plant.species);
+  var d = daysBetween(plant.plantedDate, todayStr());
+  var idx = 0;
+  for(var i=0;i<cfg.days.length;i++){ if(d >= cfg.days[i]) idx = i; }
+  return idx;
+}
+
+function getStageProgress(plant){
+  var cfg = speciesCfg(plant.species);
+  var idx = getStageIndex(plant);
+  var d = daysBetween(plant.plantedDate, todayStr());
+  if(idx >= cfg.days.length-1){ return {idx:idx, pct:100, daysIn:d, daysTotal:null}; }
+  var start = cfg.days[idx], end = cfg.days[idx+1];
+  var pct = Math.max(0, Math.min(100, Math.round((d-start)/(end-start)*100)));
+  return {idx:idx, pct: (plant.stageOverride!=null? 40: pct), daysIn:d, daysTotal:end};
+}
+
+function careStatus(plant, kind){
+  var cfg = speciesCfg(plant.species);
+  var interval = kind==="water"? (plant.waterInterval||cfg.water) : (plant.fertInterval||cfg.fert);
+  var last = kind==="water"? plant.lastWatered : plant.lastFertilized;
+  var base = last || plant.plantedDate;
+  var next = addDays(base, interval);
+  var diff = daysBetween(todayStr(), next); // negative = overdue
+  return {interval:interval, last:last, next:next, due: diff<=0, overdueDays: diff<0? -diff : 0, dueToday: diff===0};
+}
+
+function logAction(plant, type, note){
+  if(!plant.log) plant.log = [];
+  plant.log.push({date: todayStr(), type: type, note: note||""});
+}
+
+/* ============================================================
+   SVG 植株绘制
+============================================================ */
+function leafCluster(cx, topY, leafColor, leafDark, n, spread, rBase){
+  var out = "";
+  var positions = [
+    {dx:0, dy:-spread*1.05, r:rBase*1.05},
+    {dx:-spread*0.85, dy:-spread*0.25, r:rBase*0.9},
+    {dx:spread*0.85, dy:-spread*0.25, r:rBase*0.9},
+    {dx:-spread*0.5, dy:spread*0.45, r:rBase*0.8},
+    {dx:spread*0.5, dy:spread*0.45, r:rBase*0.8},
+    {dx:0, dy:spread*0.15, r:rBase*0.95}
+  ];
+  for(var i=0;i<Math.min(n, positions.length); i++){
+    var p = positions[i];
+    var col = (i%2===0)? leafColor : leafDark;
+    out += '<circle cx="'+(cx+p.dx)+'" cy="'+(topY+p.dy)+'" r="'+p.r+'" fill="'+col+'" opacity="0.96"/>';
+  }
+  return out;
+}
+
+function fruitShape(shape, color, dark, cx, cy, scale){
+  var s = scale;
+  var out = "";
+  if(shape==="pumpkin"){
+    var r = 10*s;
+    out += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+color+'"/>';
+    out += '<path d="M'+cx+','+(cy-r)+' Q'+(cx-r*0.35)+','+cy+' '+cx+','+(cy+r)+'" stroke="'+dark+'" stroke-width="'+(1.4*s)+'" fill="none" opacity="0.6"/>';
+    out += '<path d="M'+cx+','+(cy-r)+' Q'+(cx+r*0.35)+','+cy+' '+cx+','+(cy+r)+'" stroke="'+dark+'" stroke-width="'+(1.4*s)+'" fill="none" opacity="0.6"/>';
+    out += '<rect x="'+(cx-1.4*s)+'" y="'+(cy-r-4*s)+'" width="'+(2.8*s)+'" height="'+(5*s)+'" rx="1" fill="#6B4F2A"/>';
+  } else if(shape==="eggplant"){
+    out += '<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+(6.5*s)+'" ry="'+(12*s)+'" fill="'+color+'" transform="rotate(-12 '+cx+' '+cy+')"/>';
+    out += '<ellipse cx="'+(cx-1.6*s)+'" cy="'+(cy-3*s)+'" rx="'+(1.8*s)+'" ry="'+(4.5*s)+'" fill="#ffffff" opacity="0.18" transform="rotate(-12 '+cx+' '+cy+')"/>';
+    out += '<path d="M'+(cx-3*s)+','+(cy-11*s)+' L'+(cx+3*s)+','+(cy-11*s)+' L'+cx+','+(cy-15*s)+' Z" fill="'+"#4B7A45"+'"/>';
+  } else if(shape==="watermelon"){
+    var r2 = 13*s;
+    out += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r2+'" fill="'+color+'"/>';
+    for(var i=-1;i<=1;i++){
+      out += '<path d="M'+(cx+i*5*s)+','+(cy-r2)+' Q'+(cx+i*8*s)+','+cy+' '+(cx+i*5*s)+','+(cy+r2)+'" stroke="'+dark+'" stroke-width="'+(2*s)+'" fill="none" opacity="0.5"/>';
+    }
+    out += '<ellipse cx="'+(cx-4*s)+'" cy="'+(cy-5*s)+'" rx="'+(3*s)+'" ry="'+(2*s)+'" fill="#ffffff" opacity="0.25"/>';
+  } else if(shape==="tomato"){
+    var r3 = 8*s;
+    out += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r3+'" fill="'+color+'"/>';
+    out += '<ellipse cx="'+(cx-2.4*s)+'" cy="'+(cy-2.6*s)+'" rx="'+(1.8*s)+'" ry="'+(1.3*s)+'" fill="#ffffff" opacity="0.3"/>';
+    out += '<path d="M'+cx+','+(cy-r3)+' l-2,-3 m2,3 l0,-4 m0,4 l2,-3" stroke="#4F8B4F" stroke-width="'+(1.2*s)+'" fill="none" stroke-linecap="round"/>';
+  } else if(shape==="chili"){
+    out += '<path d="M'+(cx-2*s)+','+(cy-10*s)+' C'+(cx-8*s)+','+(cy-4*s)+' '+(cx-6*s)+','+(cy+6*s)+' '+(cx+3*s)+','+(cy+11*s)+'" stroke="'+color+'" stroke-width="'+(6*s)+'" fill="none" stroke-linecap="round"/>';
+    out += '<circle cx="'+(cx-2*s)+'" cy="'+(cy-10*s)+'" r="'+(2.4*s)+'" fill="#4F8B4F"/>';
+  } else if(shape==="cucumber"){
+    out += '<rect x="'+(cx-4.5*s)+'" y="'+(cy-12*s)+'" width="'+(9*s)+'" height="'+(24*s)+'" rx="'+(4.5*s)+'" fill="'+color+'" transform="rotate(8 '+cx+' '+cy+')"/>';
+    out += '<line x1="'+cx+'" y1="'+(cy-9*s)+'" x2="'+cx+'" y2="'+(cy+9*s)+'" stroke="'+dark+'" stroke-width="'+(1*s)+'" opacity="0.4" transform="rotate(8 '+cx+' '+cy+')"/>';
+  } else {
+    out += '<circle cx="'+cx+'" cy="'+cy+'" r="'+(8*s)+'" fill="'+color+'"/>';
+  }
+  return out;
+}
+
+function plantSVG(species, stageIdx){
+  var cfg = speciesCfg(species);
+  var p = "";
+  p += '<ellipse cx="50" cy="90" rx="34" ry="8" fill="#4A3728"/>';
+  p += '<ellipse cx="50" cy="88" rx="29" ry="5.5" fill="#6B4F3A"/>';
+
+  if(stageIdx===0){
+    p += '<ellipse cx="50" cy="85" rx="5" ry="3.4" fill="#8B5E34" stroke="#5C3E20" stroke-width="1"/>';
+  } else if(stageIdx===1){
+    p += '<path d="M50,87 L50,73" stroke="'+cfg.leafDark+'" stroke-width="2.6" stroke-linecap="round" fill="none"/>';
+    p += leafCluster(50, 71, cfg.leaf, cfg.leafDark, 3, 7, 6.5);
+  } else if(stageIdx===2){
+    p += '<path d="M50,87 L50,60" stroke="'+cfg.leafDark+'" stroke-width="3" stroke-linecap="round" fill="none"/>';
+    p += leafCluster(50, 56, cfg.leaf, cfg.leafDark, 6, 11, 9.5);
+  } else if(stageIdx===3){
+    p += '<path d="M50,87 L50,58" stroke="'+cfg.leafDark+'" stroke-width="3" stroke-linecap="round" fill="none"/>';
+    p += leafCluster(50, 55, cfg.leaf, cfg.leafDark, 6, 12, 10);
+    p += '<circle cx="38" cy="48" r="4.2" fill="'+cfg.flower+'"/>';
+    p += '<circle cx="34" cy="45" r="2.2" fill="'+cfg.flower+'" opacity="0.85"/>';
+    p += '<circle cx="42" cy="44" r="2.2" fill="'+cfg.flower+'" opacity="0.85"/>';
+    p += '<circle cx="34" cy="51" r="2.2" fill="'+cfg.flower+'" opacity="0.85"/>';
+    p += '<circle cx="42" cy="52" r="2.2" fill="'+cfg.flower+'" opacity="0.85"/>';
+  } else if(stageIdx===4){
+    p += '<path d="M50,87 L50,58" stroke="'+cfg.leafDark+'" stroke-width="3" stroke-linecap="round" fill="none"/>';
+    p += leafCluster(50, 55, cfg.leaf, cfg.leafDark, 6, 12, 10);
+    p += fruitShape(cfg.shape, cfg.fruit, cfg.fruitDark, 50, 78, 0.55);
+  } else {
+    p += '<path d="M50,87 L50,56" stroke="'+cfg.leafDark+'" stroke-width="3.2" stroke-linecap="round" fill="none"/>';
+    p += leafCluster(50, 53, cfg.leaf, cfg.leafDark, 6, 13, 11);
+    p += fruitShape(cfg.shape, cfg.fruit, cfg.fruitDark, 50, 79, 1);
+    p += '<text x="78" y="30" font-size="11" opacity="0.9">✨</text>';
+  }
+  return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'+p+'</svg>';
+}
+
+/* ============================================================
+   花园场景：日夜循环
+============================================================ */
+function skyPhase(){
+  if(state.settings.theme==="day") return "day";
+  if(state.settings.theme==="night") return "night";
+  var h = new Date().getHours();
+  if(h>=5 && h<7) return "dawn";
+  if(h>=7 && h<17) return "day";
+  if(h>=17 && h<19.5) return "dusk";
+  return "night";
+}
+
+function renderSky(){
+  var scene = qs("#sky-scene");
+  var phase = skyPhase();
+  scene.className = "phase-" + phase;
+  var cel = qs("#celestial");
+  var h = new Date().getHours() + new Date().getMinutes()/60;
+  var top;
+  if(phase==="night"){
+    var t = ((h>=19?h-19:h+5)) / 10;
+    top = 14 + Math.sin(Math.min(t,1)*Math.PI) * 26;
+  } else {
+    var dayT = Math.max(0, Math.min(1, (h-6)/12));
+    top = 130 - Math.sin(dayT*Math.PI) * 118;
+  }
+  cel.style.top = Math.max(8, top) + "px";
+
+  var starsEl = qs("#stars");
+  if(!starsEl.dataset.built){
+    var s = "";
+    for(var i=0;i<28;i++){
+      var x = Math.random()*100, y = Math.random()*65, r = Math.random()*1.6+0.6;
+      s += '<div class="star" style="left:'+x+'%;top:'+y+'%;width:'+r+'px;height:'+r+'px;opacity:'+(0.4+Math.random()*0.6)+'"></div>';
+    }
+    starsEl.innerHTML = s;
+    starsEl.dataset.built = "1";
+  }
+
+  var hillrow = qs("#hillrow");
+  if(!hillrow.dataset.built){
+    hillrow.innerHTML =
+      '<div class="hill" style="left:-10%;width:60%;height:90px;background:#3E5C34;"></div>'+
+      '<div class="hill" style="left:35%;width:70%;height:70px;background:#4C7440;"></div>';
+    hillrow.dataset.built = "1";
+  }
+}
+
+/* ============================================================
+   花园视图渲染
+============================================================ */
+function renderGarden(){
+  var plot = qs("#garden-plot");
+  var plants = state.plants;
+  if(plants.length===0){
+    plot.innerHTML = '<div class="plot-empty"><span class="icon">🌱</span>这块地还是空的<br>点击下方「创建」种下第一株作物吧</div>';
+  } else {
+    var html = "";
+    plants.forEach(function(pl){
+      var cfg = speciesCfg(pl.species);
+      var stageIdx = getStageIndex(pl);
+      var w = careStatus(pl,"water"), f = careStatus(pl,"fert");
+      var badges = "";
+      if(w.due) badges += '<div class="badge water">💧</div>';
+      if(f.due) badges += '<div class="badge fert">🌰</div>';
+      html += '<button class="plant-tile" data-id="'+pl.id+'">'+
+                '<div class="badge-row">'+badges+'</div>'+
+                plantSVG(pl.species, stageIdx)+
+                '<div class="p-name">'+escapeHtml(pl.name)+'</div>'+
+                '<div class="p-stage">'+STAGE_NAMES[stageIdx]+'</div>'+
+              '</button>';
+    });
+    plot.innerHTML = html;
+  }
+  qsa(".plant-tile", plot).forEach(function(btn){
+    btn.addEventListener("click", function(){ openSheet(btn.getAttribute("data-id")); });
+  });
+  renderTodayTodo();
+  renderTodoPill();
+}
+
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+
+function collectDueList(){
+  var list = [];
+  state.plants.forEach(function(pl){
+    var w = careStatus(pl,"water");
+    var f = careStatus(pl,"fert");
+    if(w.due) list.push({plant:pl, kind:"water", overdue:w.overdueDays});
+    if(f.due) list.push({plant:pl, kind:"fert", overdue:f.overdueDays});
+  });
+  list.sort(function(a,b){ return b.overdue-a.overdue; });
+  return list;
+}
+
+function renderTodoPill(){
+  var list = collectDueList();
+  var pill = qs("#todo-pill");
+  if(list.length===0){ pill.classList.add("hidden"); return; }
+  pill.classList.remove("hidden");
+  qs("#todo-count-text").textContent = list.length + " 项待办";
+}
+
+function renderTodayTodo(){
+  var list = collectDueList();
+  var card = qs("#today-todo-card");
+  if(list.length===0){ card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  var html = "";
+  list.forEach(function(item){
+    var pl = item.plant;
+    var isWater = item.kind==="water";
+    var sub = item.overdue>0 ? ("已逾期 "+item.overdue+" 天") : "今天该做啦";
+    html += '<div class="todo-item">'+
+              '<div class="ti-icon '+(isWater?"water":"fert")+'">'+(isWater?"💧":"🌰")+'</div>'+
+              '<div class="ti-body"><div class="ti-title">'+escapeHtml(pl.name)+' · '+(isWater?"浇水":"施肥")+'</div>'+
+              '<div class="ti-sub'+(item.overdue>0?" overdue":"")+'">'+sub+'</div></div>'+
+              '<button class="btn-check" data-id="'+pl.id+'" data-kind="'+item.kind+'">打卡</button>'+
+            '</div>';
+  });
+  card.querySelector("#today-todo-list").innerHTML = html;
+  qsa(".btn-check", card).forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var pl = findPlant(btn.getAttribute("data-id"));
+      markCare(pl, btn.getAttribute("data-kind"));
+      persistAndRerender();
+    });
+  });
+}
+
+function findPlant(id){ return state.plants.filter(function(p){return p.id===id;})[0]; }
+
+function markCare(plant, kind){
+  if(kind==="water"){ plant.lastWatered = todayStr(); logAction(plant,"water"); }
+  else { plant.lastFertilized = todayStr(); logAction(plant,"fert"); }
+}
+
+function persistAndRerender(){
+  savePlants(state.plants);
+  renderGarden();
+  if(state.currentView==="calendar") renderCalendar();
+  if(state.activePlantId) fillSheet(findPlant(state.activePlantId));
+}
+
+/* ============================================================
+   植株详情底部弹层
+============================================================ */
+function openSheet(id){
+  state.activePlantId = id;
+  var pl = findPlant(id);
+  if(!pl) return;
+  fillSheet(pl);
+  qs("#sheet-backdrop").classList.add("show");
+  qs("#plant-sheet").classList.add("show");
+}
+function closeSheet(){
+  qs("#sheet-backdrop").classList.remove("show");
+  qs("#plant-sheet").classList.remove("show");
+  state.activePlantId = null;
+}
+
+function fillSheet(pl){
+  var cfg = speciesCfg(pl.species);
+  var prog = getStageProgress(pl);
+  qs("#sheet-svg").innerHTML = plantSVG(pl.species, prog.idx);
+  qs("#sheet-name").textContent = pl.name;
+  qs("#sheet-species").textContent = cfg.label + " · 种下第 " + prog.daysIn + " 天";
+  qs("#stage-label").textContent = STAGE_NAMES[prog.idx];
+  qs("#stage-next-label").textContent = prog.idx < 5 ? ("→ " + STAGE_NAMES[prog.idx+1]) : "已成熟 🎉";
+  qs("#stage-bar-fill").style.width = prog.pct + "%";
+
+  var w = careStatus(pl,"water"), f = careStatus(pl,"fert");
+  var wEl = qs("#stat-water"), fEl = qs("#stat-fert");
+  wEl.textContent = w.due ? (w.overdueDays>0? ("逾期"+w.overdueDays+"天") : "今天该浇水") : ("还有"+Math.abs(daysBetween(todayStr(),w.next))+"天");
+  wEl.className = "sb-val" + (w.due? " due":"");
+  fEl.textContent = f.due ? (f.overdueDays>0? ("逾期"+f.overdueDays+"天") : "今天该施肥") : ("还有"+Math.abs(daysBetween(todayStr(),f.next))+"天");
+  fEl.className = "sb-val" + (f.due? " due":"");
+
+  var harvests = (pl.log||[]).filter(function(l){return l.type==="harvest";});
+  qs("#sheet-harvest-log").textContent = harvests.length ? ("已记录 "+harvests.length+" 次收获，最近一次："+harvests[harvests.length-1].date) : "还没有收获记录";
+
+  qs("#e-name").value = pl.name;
+  qs("#e-planted").value = pl.plantedDate;
+  qs("#e-stage-mode").value = (pl.stageOverride===null||pl.stageOverride===undefined) ? "auto" : String(pl.stageOverride);
+  qs("#e-water").value = pl.waterInterval || cfg.water;
+  qs("#e-fert").value = pl.fertInterval || cfg.fert;
+  qs("#e-note").value = pl.note || "";
+}
+
+/* ============================================================
+   创建视图
+============================================================ */
+function renderPresetGrid(){
+  var order = ["pumpkin","eggplant","watermelon","tomato","chili","cucumber","custom"];
+  var html = "";
+  order.forEach(function(key){
+    var cfg = SPECIES[key];
+    html += '<button class="preset-card'+(state.selectedPreset===key?" selected":"")+'" data-key="'+key+'">'+
+              '<span class="pc-emoji">'+cfg.emoji+'</span><span class="pc-label">'+cfg.label+'</span></button>';
+  });
+  qs("#preset-grid").innerHTML = html;
+  qsa(".preset-card").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      state.selectedPreset = btn.getAttribute("data-key");
+      renderPresetGrid();
+      var cfg = SPECIES[state.selectedPreset];
+      qs("#f-water").value = cfg.water;
+      qs("#f-fert").value = cfg.fert;
+      if(!qs("#f-name").value) qs("#f-name").placeholder = "例如：1号"+cfg.label;
+    });
+  });
+}
+
+function resetCreateForm(){
+  state.selectedPreset = "pumpkin";
+  renderPresetGrid();
+  qs("#f-name").value = "";
+  qs("#f-planted").value = todayStr();
+  qs("#f-stage-mode").value = "auto";
+  qs("#f-water").value = SPECIES.pumpkin.water;
+  qs("#f-fert").value = SPECIES.pumpkin.fert;
+  qs("#f-note").value = "";
+}
+
+function saveNewPlant(){
+  var cfg = SPECIES[state.selectedPreset];
+  var name = qs("#f-name").value.trim() || (cfg.label + (state.plants.length+1));
+  var stageMode = qs("#f-stage-mode").value;
+  var plant = {
+    id: uid(),
+    name: name,
+    species: state.selectedPreset,
+    plantedDate: qs("#f-planted").value || todayStr(),
+    stageOverride: stageMode==="auto" ? null : parseInt(stageMode,10),
+    waterInterval: parseInt(qs("#f-water").value,10) || cfg.water,
+    fertInterval: parseInt(qs("#f-fert").value,10) || cfg.fert,
+    lastWatered: null,
+    lastFertilized: null,
+    note: qs("#f-note").value.trim(),
+    log: [],
+    createdAt: Date.now()
+  };
+  state.plants.push(plant);
+  savePlants(state.plants);
+  resetCreateForm();
+  showView("garden");
+  renderGarden();
+}
+
+/* ============================================================
+   日历视图
+============================================================ */
+var CAL_DOW = ["日","一","二","三","四","五","六"];
+
+function renderCalendar(){
+  var y = state.calYear, m = state.calMonth;
+  qs("#cal-title").textContent = y + "年" + (m+1) + "月";
+  var first = new Date(y,m,1);
+  var startDow = first.getDay();
+  var daysInMonth = new Date(y,m+1,0).getDate();
+
+  var logsByDate = {};
+  state.plants.forEach(function(pl){
+    (pl.log||[]).forEach(function(l){
+      if(!logsByDate[l.date]) logsByDate[l.date] = [];
+      logsByDate[l.date].push({plant:pl, type:l.type});
+    });
+  });
+
+  var html = "";
+  CAL_DOW.forEach(function(d){ html += '<div class="cal-dow">'+d+'</div>'; });
+  for(var i=0;i<startDow;i++){ html += '<div class="cal-day empty"></div>'; }
+  for(var d=1; d<=daysInMonth; d++){
+    var dateStr = y+"-"+pad2(m+1)+"-"+pad2(d);
+    var isToday = dateStr===todayStr();
+    var isSelected = dateStr===state.calSelectedDate;
+    var entries = logsByDate[dateStr] || [];
+    var types = {};
+    entries.forEach(function(e){ types[e.type]=true; });
+    var dots = "";
+    if(types.water) dots += '<span class="dot water"></span>';
+    if(types.fert) dots += '<span class="dot fert"></span>';
+    if(types.harvest) dots += '<span class="dot harvest"></span>';
+    html += '<div class="cal-day'+(isToday?" today":"")+(isSelected?" selected":"")+'" data-date="'+dateStr+'">'+d+
+            '<div class="dots">'+dots+'</div></div>';
+  }
+  qs("#cal-grid").innerHTML = html;
+  qsa(".cal-day[data-date]").forEach(function(el){
+    el.addEventListener("click", function(){
+      state.calSelectedDate = el.getAttribute("data-date");
+      renderCalendar();
+    });
+  });
+  renderCalDayLog(logsByDate);
+}
+
+function renderCalDayLog(logsByDate){
+  var sel = state.calSelectedDate;
+  qs("#cal-selected-title").textContent = (sel===todayStr()?"今天 · ":"") + fmtShort(sel);
+  var entries = logsByDate[sel] || [];
+  var box = qs("#cal-day-log");
+  if(entries.length===0){
+    box.innerHTML = '<div class="empty-note">这一天没有记录</div>';
+    return;
+  }
+  var iconMap = {water:"💧 浇水", fert:"🌰 施肥", harvest:"🧺 收获"};
+  box.innerHTML = entries.map(function(e){
+    return '<div class="day-log-item">'+iconMap[e.type]+' — '+escapeHtml(e.plant.name)+'</div>';
+  }).join("");
+}
+
+/* ============================================================
+   设置视图
+============================================================ */
+function renderSettings(){
+  qs("#s-garden-name").value = state.settings.gardenName;
+  qsa(".toggle-opt", qs("#theme-toggle")).forEach(function(el){
+    el.classList.toggle("active", el.getAttribute("data-v")===state.settings.theme);
+  });
+}
+
+function exportBackup(){
+  var data = { plants: state.plants, settings: state.settings, exportedAt: new Date().toISOString() };
+  var blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = "my-garden-backup-" + todayStr() + ".json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+}
+
+function importBackup(file){
+  var reader = new FileReader();
+  reader.onload = function(){
+    try{
+      var data = JSON.parse(reader.result);
+      if(Array.isArray(data.plants)){
+        state.plants = data.plants;
+        savePlants(state.plants);
+      }
+      if(data.settings){
+        state.settings = data.settings;
+        saveSettings(state.settings);
+      }
+      qs("#garden-name").textContent = state.settings.gardenName;
+      renderSettings();
+      renderGarden();
+      alert("导入成功！");
+    }catch(e){
+      alert("导入失败：文件格式不正确");
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ============================================================
+   视图切换
+============================================================ */
+function showView(name){
+  state.currentView = name;
+  qsa(".view").forEach(function(v){ v.classList.remove("active"); });
+  qs("#view-"+name).classList.add("active");
+  qsa(".nav-btn").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-view")===name); });
+  if(name==="calendar") renderCalendar();
+  if(name==="create") resetCreateForm();
+  if(name==="settings") renderSettings();
+  if(name==="garden") renderGarden();
+}
+
+/* ============================================================
+   事件绑定
+============================================================ */
+function bindEvents(){
+  qsa(".nav-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){ showView(btn.getAttribute("data-view")); });
+  });
+
+  qs("#todo-pill").addEventListener("click", function(){ showView("garden"); });
+
+  qs("#sheet-backdrop").addEventListener("click", closeSheet);
+
+  qs("#cal-prev").addEventListener("click", function(){
+    state.calMonth--; if(state.calMonth<0){ state.calMonth=11; state.calYear--; }
+    renderCalendar();
+  });
+  qs("#cal-next").addEventListener("click", function(){
+    state.calMonth++; if(state.calMonth>11){ state.calMonth=0; state.calYear++; }
+    renderCalendar();
+  });
+
+  qs("#btn-save-plant").addEventListener("click", saveNewPlant);
+
+  qs("#btn-mark-water").addEventListener("click", function(){
+    var pl = findPlant(state.activePlantId); if(!pl) return;
+    markCare(pl,"water"); persistAndRerender();
+  });
+  qs("#btn-mark-fert").addEventListener("click", function(){
+    var pl = findPlant(state.activePlantId); if(!pl) return;
+    markCare(pl,"fert"); persistAndRerender();
+  });
+  qs("#btn-mark-harvest").addEventListener("click", function(){
+    var pl = findPlant(state.activePlantId); if(!pl) return;
+    var note = prompt("记一下这次收获吧（可留空）","");
+    if(note===null) return;
+    logAction(pl,"harvest",note);
+    persistAndRerender();
+  });
+
+  qs("#btn-save-edit").addEventListener("click", function(){
+    var pl = findPlant(state.activePlantId); if(!pl) return;
+    pl.name = qs("#e-name").value.trim() || pl.name;
+    pl.plantedDate = qs("#e-planted").value || pl.plantedDate;
+    var mode = qs("#e-stage-mode").value;
+    pl.stageOverride = mode==="auto" ? null : parseInt(mode,10);
+    pl.waterInterval = parseInt(qs("#e-water").value,10) || pl.waterInterval;
+    pl.fertInterval = parseInt(qs("#e-fert").value,10) || pl.fertInterval;
+    pl.note = qs("#e-note").value.trim();
+    persistAndRerender();
+    closeSheet();
+  });
+  qs("#btn-delete-plant").addEventListener("click", function(){
+    if(!confirm("确定要移除这株作物吗？记录不可恢复。")) return;
+    state.plants = state.plants.filter(function(p){ return p.id!==state.activePlantId; });
+    savePlants(state.plants);
+    closeSheet();
+    renderGarden();
+  });
+
+  qsa(".toggle-opt", qs("#theme-toggle")).forEach(function(el){
+    el.addEventListener("click", function(){
+      state.settings.theme = el.getAttribute("data-v");
+      saveSettings(state.settings);
+      renderSettings();
+      renderSky();
+    });
+  });
+  qs("#s-garden-name").addEventListener("change", function(){
+    state.settings.gardenName = qs("#s-garden-name").value.trim() || "我的菜园";
+    saveSettings(state.settings);
+    qs("#garden-name").textContent = state.settings.gardenName;
+  });
+
+  qs("#btn-export").addEventListener("click", exportBackup);
+  qs("#btn-import").addEventListener("click", function(){ qs("#import-file").click(); });
+  qs("#import-file").addEventListener("change", function(e){
+    if(e.target.files && e.target.files[0]) importBackup(e.target.files[0]);
+  });
+  qs("#btn-reset").addEventListener("click", function(){
+    if(!confirm("确定要清空所有菜园数据吗？此操作不可恢复，建议先导出备份。")) return;
+    state.plants = [];
+    savePlants(state.plants);
+    renderGarden();
+    alert("已清空。");
+  });
+}
+
+/* ============================================================
+   初始化
+============================================================ */
+function init(){
+  qs("#garden-name").textContent = state.settings.gardenName;
+  qs("#f-planted").value = todayStr();
+  bindEvents();
+  renderPresetGrid();
+  qs("#f-water").value = SPECIES.pumpkin.water;
+  qs("#f-fert").value = SPECIES.pumpkin.fert;
+  renderSky();
+  renderGarden();
+  setInterval(renderSky, 60000);
+
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+</body>
+</html>

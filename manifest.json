@@ -1,0 +1,17 @@
+{
+  "name": "我的菜园",
+  "short_name": "菜园",
+  "description": "记录南瓜、茄子等蔬果的生长阶段、浇水与施肥周期",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1B1536",
+  "theme_color": "#2B2536",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
